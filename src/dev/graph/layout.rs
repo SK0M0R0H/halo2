@@ -172,7 +172,7 @@ impl CircuitLayout {
         if view_bottom > usable_rows {
             root.draw(&Rectangle::new(
                 [(0, usable_rows), (total_columns, view_bottom)],
-                ShapeStyle::from(&RED.mix(0.4)).filled(),
+                ShapeStyle::from(&BLACK.mix(0.7)).filled(),
             ))?;
         }
 
