@@ -66,6 +66,9 @@ struct FieldConfig {
     // multiple sets of instructions.
     s_mul: Selector,
 
+
+    s_add: Selector,
+
     /// The fixed column used to load constants.
     constant: Column<Fixed>,
 }
@@ -90,9 +93,10 @@ impl<F: FieldExt> FieldChip<F> {
             meta.enable_equality((*column).into());
         }
         let s_mul = meta.selector();
+        let s_add = meta.selector();
 
         // Define our multiplication gate!
-        meta.create_gate("mul", |meta| {
+        meta.create_gate("mul_gate", |meta| {
             // To implement multiplication, we need three advice cells and a selector
             // cell. We arrange them like so:
             //
@@ -121,10 +125,40 @@ impl<F: FieldExt> FieldChip<F> {
             vec![s_mul * (lhs * rhs - out)]
         });
 
+        meta.create_gate("add_gate", |meta| {
+            // To implement multiplication, we need three advice cells and a selector
+            // cell. We arrange them like so:
+            //
+            // | a0  | a1  | s_mul |
+            // |-----|-----|-------|
+            // | lhs | rhs | s_mul |
+            // | out |     |       |
+            //
+            // Gates may refer to any relative offsets we want, but each distinct
+            // offset adds a cost to the proof. The most common offsets are 0 (the
+            // current row), 1 (the next row), and -1 (the previous row), for which
+            // `Rotation` has specific constructors.
+            let lhs = meta.query_advice(advice[0], Rotation::cur());
+            let rhs = meta.query_advice(advice[1], Rotation::cur());
+            let out = meta.query_advice(advice[0], Rotation::next());
+            let s_add = meta.query_selector(s_add);
+
+            // Finally, we return the polynomial expressions that constrain this gate.
+            // For our multiplication gate, we only need a single polynomial constraint.
+            //
+            // The polynomial expressions returned from `create_gate` will be
+            // constrained by the proving system to equal zero. Our expression
+            // has the following properties:
+            // - When s_mul = 0, any value is allowed in lhs, rhs, and out.
+            // - When s_mul != 0, this constrains lhs * rhs = out.
+            vec![s_add * (lhs + rhs - out)]
+        });
+
         FieldConfig {
             advice,
             instance,
             s_mul,
+            s_add,
             constant,
         }
     }
@@ -381,4 +415,24 @@ fn main() {
     let prover = MockProver::run(k, &circuit, vec![public_inputs]).unwrap();
     assert!(prover.verify().is_err());
     // ANCHOR_END: test-circuit
+
+    // Create the area you want to draw on.
+    // Use SVGBackend if you want to render to .svg instead.
+    use plotters::prelude::*;
+    let root = BitMapBackend::new("layout.png", (1024, 768)).into_drawing_area();
+    root.fill(&WHITE).unwrap();
+    let root = root
+        .titled("Simple Example Circuit Layout", ("sans-serif", 60).into_font().color(&BLACK.mix(0.5)))
+        .unwrap();
+
+    halo2::dev::CircuitLayout::default()
+        // You can optionally render only a section of the circuit.
+        //.view_width(0..2)
+        //.view_height(0..16)
+        // You can hide labels, which can be useful with smaller areas.
+        .show_labels(true)
+        // Render the circuit onto your area!
+        // The first argument is the size parameter for the circuit.
+        .render(k as usize, &circuit, &root)
+        .unwrap();
 }

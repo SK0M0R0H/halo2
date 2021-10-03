@@ -302,7 +302,7 @@ fn main() {
     let root = BitMapBackend::new("layout.png", (1024, 768)).into_drawing_area();
     root.fill(&WHITE).unwrap();
     let root = root
-        .titled("Example Circuit Layout", ("sans-serif", 60))
+        .titled("Example Circuit Layout", ("sans-serif", 60).into_font().color(&BLACK.mix(0.5)))
         .unwrap();
 
     halo2::dev::CircuitLayout::default()
@@ -310,7 +310,7 @@ fn main() {
         .view_width(0..2)
         .view_height(0..16)
         // You can hide labels, which can be useful with smaller areas.
-        .show_labels(false)
+        .show_labels(true)
         // Render the circuit onto your area!
         // The first argument is the size parameter for the circuit.
         .render(5, &circuit, &root)
